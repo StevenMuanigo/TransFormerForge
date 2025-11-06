@@ -1,0 +1,61 @@
+
+# Web Framework
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["trace", "cors"] }
+
+# AI/ML Libraries
+candle-core = "0.3"
+candle-nn = "0.3"
+candle-transformers = "0.3"
+tokenizers = "0.15"
+hf-hub = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Configuration
+config = "0.14"
+dotenv = "0.15"
+
+# Logging & Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-appender = "0.2"
+
+# Metrics
+prometheus = "0.13"
+lazy_static = "1.4"
+
+# Caching
+cached = { version = "0.46", features = ["async"] }
+dashmap = "5.5"
+
+# Error Handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Utilities
+chrono = "0.4"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+rayon = "1.8"
+
+# System Info
+sysinfo = "0.30"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["async_tokio"] }
+mockall = "0.12"
+tempfile = "3.8"
+
+[[bench]]
+name = "inference_bench"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
