@@ -1,0 +1,115 @@
+use anyhow::Result;
+use std::sync::Arc;
+use candle_core::{Device, Tensor};
+
+pub mod pipeline;
+pub mod batch;
+pub mod device;
+
+use crate::config::AppConfig;
+use crate::model::ModelManager;
+
+pub struct InferenceEngine {
+    pub device: Device,
+    pub config: Arc<AppConfig>,
+    pub model_manager: Arc<ModelManager>,
+}
+
+impl InferenceEngine {
+    pub async fn new(config: Arc<AppConfig>, model_manager: Arc<ModelManager>) -> Result<Self> {
+        let device = device::auto_detect_device(config.inference.enable_gpu)?;
+        
+        tracing::info!("Inference engine initialized on device: {:?}", device);
+        
+        Ok(Self {
+            device,
+            config,
+            model_manager,
+        })
+    }
+
+    pub async fn infer_single(&self, input: &str) -> Result<InferenceResult> {
+        let start = std::time::Instant::now();
+        
+        // Get active model
+        let model_name = self.model_manager.get_active_model().await
+            .ok_or_else(|| anyhow::anyhow!("No active model"))?;
+        
+        // Preprocess
+        let processed_input = crate::preprocessing::preprocess_text(input, &self.config)?;
+        
+        // Run inference (placeholder - will use actual model)
+        let output = self.run_inference(&processed_input).await?;
+        
+        // Increment inference counter
+        self.model_manager.registry.increment_inference_count(&model_name).await;
+        
+        let latency_ms = start.elapsed().as_millis() as u64;
+        
+        tracing::debug!(
+            "Inference completed in {}ms for model: {}",
+            latency_ms,
+            model_name
+        );
+        
+        Ok(InferenceResult {
+            model_name,
+            input: input.to_string(),
+            output,
+            latency_ms,
+            timestamp: chrono::Utc::now(),
+        })
+    }
+
+    pub async fn infer_batch(&self, inputs: Vec<String>) -> Result<Vec<InferenceResult>> {
+        let start = std::time::Instant::now();
+        
+        tracing::info!("Processing batch of {} inputs", inputs.len());
+        
+        let mut results = Vec::with_capacity(inputs.len());
+        
+        // Process in batches
+        for chunk in inputs.chunks(self.config.inference.batch_size) {
+            for input in chunk {
+                let result = self.infer_single(input).await?;
+                results.push(result);
+            }
+        }
+        
+        let total_latency = start.elapsed().as_millis() as u64;
+        tracing::info!(
+            "Batch processing completed in {}ms ({} inputs)",
+            total_latency,
+            inputs.len()
+        );
+        
+        Ok(results)
+    }
+
+    async fn run_inference(&self, input: &str) -> Result<InferenceOutput> {
+        // Placeholder for actual inference logic
+        // In production, this would load the model and run actual inference
+        
+        Ok(InferenceOutput {
+            label: "POSITIVE".to_string(),
+            score: 0.95,
+            embeddings: vec![0.1, 0.2, 0.3], // Dummy embeddings
+        })
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct InferenceResult {
+    pub model_name: String,
+    pub input: String,
+    pub output: InferenceOutput,
+    pub latency_ms: u64,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct InferenceOutput {
+    pub label: String,
+    pub score: f32,
+    pub embeddings: Vec<f32>,
+}
